@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Авторизация</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f4f4;
+        }
+
+        .container {
+            width: 400px;
+            margin: 100px auto;
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            background: #2e7d32;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1b5e20;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Авторизация</h2>
+
+    <label>Группа</label>
+    <select id="groups"></select>
+
+    <label>Студент</label>
+    <select id="students"></select>
+
+    <label>Датасет</label>
+    <select id="datasets"></select>
+
+    <button onclick="start()">Продолжить</button>
+</div>
+
+<script>
+const API = "http://127.0.0.1:5000";
+
+let allStudents = [];
+let allDatasets = [];
+
+// загрузка студентов и датасетов
+async function init() {
+    const resStudents = await fetch(API + "/students");
+    allStudents = await resStudents.json();
+
+    const resDatasets = await fetch(API + "/datasets");
+    allDatasets = await resDatasets.json();
+
+    fillGroups();
+    fillDatasets();
+}
+
+// группы
+function fillGroups() {
+    const groups = [...new Set(allStudents.map(s => s.group))];
+
+    const select = document.getElementById("groups");
+    select.innerHTML = "";
+
+    groups.forEach(g => {
+        const option = document.createElement("option");
+        option.value = g;
+        option.text = g;
+        select.appendChild(option);
+    });
+
+    fillStudents();
+}
+
+// студенты
+function fillStudents() {
+    const group = document.getElementById("groups").value;
+
+    const filtered = allStudents.filter(s => s.group === group);
+
+    const select = document.getElementById("students");
+    select.innerHTML = "";
+
+    filtered.forEach(s => {
+        const option = document.createElement("option");
+        option.value = s.id;
+        option.text = s.name;
+        select.appendChild(option);
+    });
+}
+
+// датасеты
+function fillDatasets() {
+    const select = document.getElementById("datasets");
+    select.innerHTML = "";
+
+    allDatasets.forEach(d => {
+        const option = document.createElement("option");
+        option.value = d.id;
+        option.text = d.name + " (выбрано: " + d.count + ")";
+        select.appendChild(option);
+    });
+}
+
+// события
+document.getElementById("groups").addEventListener("change", fillStudents);
+
+// старт
+async function start() {
+    const studentId = document.getElementById("students").value;
+    const datasetId = document.getElementById("datasets").value;
+
+    // 1. назначаем dataset через API
+    const res = await fetch(API + "/select_dataset", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            student_id: Number(studentId),
+            dataset_id: Number(datasetId)
+        })
+    });
+
+    const result = await res.json();
+
+    if (!result.success) {
+        alert(result.error);
+        return;
+    }
+
+    // 2. сохраняем
+    localStorage.setItem("student_id", studentId);
+    localStorage.setItem("dataset_id", datasetId);
+
+    // 3. переход
+    window.location.href = "/tasks";
+}
+
+// запуск
+init();
+</script>
+
+</body>
+</html>
