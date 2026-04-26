@@ -17,7 +17,7 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS students (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
+        name TEXT UNIQUE,
         group_name TEXT,
         dataset INTEGER
     )
@@ -52,24 +52,33 @@ def init_db():
 def ensure_initialized():
     if not os.path.exists(DB_NAME):
         init_db()
-        load_students_from_csv("data/students.csv")
         load_datasets()
+    
+    # всегда перезагружаем студентов из CSV при запуске
+    load_students_from_csv("data/students.csv")
 
 
 def load_students_from_csv(file_path: str):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM students")
+    # получаем текущих студентов с их датасетами
+    cursor.execute("SELECT name, dataset FROM students")
+    existing_students = {row[0]: row[1] for row in cursor.fetchall()}
 
+    # читаем CSV
     with open(file_path, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
 
         for row in reader:
+            name = row["name"]
+            # сохраняем датасет если студент уже был в БД
+            existing_dataset = existing_students.get(name)
+            
             cursor.execute("""
-                INSERT INTO students (name, group_name, dataset)
-                VALUES (?, ?, NULL)
-            """, (row["name"], row["group_name"]))
+                INSERT OR REPLACE INTO students (name, group_name, dataset)
+                VALUES (?, ?, ?)
+            """, (name, row["group_name"], existing_dataset))
 
     conn.commit()
     conn.close()

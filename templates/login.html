@@ -113,6 +113,19 @@ function fillStudents() {
     checkStudentDataset();
 }
 
+// датасеты
+function fillDatasets() {
+    const select = document.getElementById("datasets");
+    select.innerHTML = "";
+
+    allDatasets.forEach(d => {
+        const option = document.createElement("option");
+        option.value = d.id;
+        option.text = d.name + " (выбрано: " + d.count + ")";
+        select.appendChild(option);
+    });
+}
+
 // проверка датасета студента
 function checkStudentDataset() {
     const studentId = document.getElementById("students").value;
@@ -120,16 +133,13 @@ function checkStudentDataset() {
 
     const datasetSelect = document.getElementById("datasets");
     const datasetLabel = document.getElementById("datasetLabel");
-    const button = document.querySelector("button");
 
     if (student && student.dataset !== null) {
         datasetSelect.style.display = "none";
         datasetLabel.style.display = "none";
-        button.textContent = "Продолжить";
     } else {
         datasetSelect.style.display = "block";
         datasetLabel.style.display = "block";
-        button.textContent = "Продолжить";
     }
 }
 
@@ -140,44 +150,41 @@ document.getElementById("students").addEventListener("change", checkStudentDatas
 // старт
 async function start() {
     const studentId = document.getElementById("students").value;
-    const datasetId = document.getElementById("datasets").value;
+    const datasetSelect = document.getElementById("datasets");
+    
+    // проверяем, видим ли селект датасета (значит датасет ещё не выбран)
+    if (datasetSelect.style.display !== "none") {
+        const datasetId = datasetSelect.value;
 
-    // 1. получаем информацию о студенте
-    const studentRes = await fetch(API + "/student/" + studentId);
-    const student = await studentRes.json();
+        // назначаем dataset через API
+        const res = await fetch(API + "/select_dataset", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                student_id: Number(studentId),
+                dataset_id: Number(datasetId)
+            })
+        });
 
-    if (student.dataset !== null) {
-        // датасет уже выбран, просто сохраняем и переходим
+        const result = await res.json();
+
+        if (!result.success) {
+            alert(result.error);
+            return;
+        }
+
+        localStorage.setItem("student_id", studentId);
+        localStorage.setItem("dataset_id", datasetId);
+    } else {
+        // датасет уже выбран, берём из данных студента
+        const student = allStudents.find(s => s.id == studentId);
         localStorage.setItem("student_id", studentId);
         localStorage.setItem("dataset_id", student.dataset);
-        window.location.href = "/tasks";
-        return;
     }
 
-    // 2. назначаем dataset через API
-    const res = await fetch(API + "/select_dataset", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            student_id: Number(studentId),
-            dataset_id: Number(datasetId)
-        })
-    });
-
-    const result = await res.json();
-
-    if (!result.success) {
-        alert(result.error);
-        return;
-    }
-
-    // 3. сохраняем
-    localStorage.setItem("student_id", studentId);
-    localStorage.setItem("dataset_id", datasetId);
-
-    // 4. переход
+    // переход
     window.location.href = "/tasks";
 }
 
