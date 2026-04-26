@@ -52,7 +52,7 @@
     <label>Студент</label>
     <select id="students"></select>
 
-    <label>Датасет</label>
+    <label id="datasetLabel">Датасет</label>
     <select id="datasets"></select>
 
     <button onclick="start()">Продолжить</button>
@@ -74,6 +74,7 @@ async function init() {
 
     fillGroups();
     fillDatasets();
+    checkStudentDataset();  // проверка после загрузки
 }
 
 // группы
@@ -105,33 +106,55 @@ function fillStudents() {
     filtered.forEach(s => {
         const option = document.createElement("option");
         option.value = s.id;
-        option.text = s.name;
+        option.text = s.name + (s.dataset ? " (датасет выбран)" : "");
         select.appendChild(option);
     });
+
+    checkStudentDataset();
 }
 
-// датасеты
-function fillDatasets() {
-    const select = document.getElementById("datasets");
-    select.innerHTML = "";
+// проверка датасета студента
+function checkStudentDataset() {
+    const studentId = document.getElementById("students").value;
+    const student = allStudents.find(s => s.id == studentId);
 
-    allDatasets.forEach(d => {
-        const option = document.createElement("option");
-        option.value = d.id;
-        option.text = d.name + " (выбрано: " + d.count + ")";
-        select.appendChild(option);
-    });
+    const datasetSelect = document.getElementById("datasets");
+    const datasetLabel = document.getElementById("datasetLabel");
+    const button = document.querySelector("button");
+
+    if (student && student.dataset !== null) {
+        datasetSelect.style.display = "none";
+        datasetLabel.style.display = "none";
+        button.textContent = "Продолжить";
+    } else {
+        datasetSelect.style.display = "block";
+        datasetLabel.style.display = "block";
+        button.textContent = "Продолжить";
+    }
 }
 
 // события
 document.getElementById("groups").addEventListener("change", fillStudents);
+document.getElementById("students").addEventListener("change", checkStudentDataset);
 
 // старт
 async function start() {
     const studentId = document.getElementById("students").value;
     const datasetId = document.getElementById("datasets").value;
 
-    // 1. назначаем dataset через API
+    // 1. получаем информацию о студенте
+    const studentRes = await fetch(API + "/student/" + studentId);
+    const student = await studentRes.json();
+
+    if (student.dataset !== null) {
+        // датасет уже выбран, просто сохраняем и переходим
+        localStorage.setItem("student_id", studentId);
+        localStorage.setItem("dataset_id", student.dataset);
+        window.location.href = "/tasks";
+        return;
+    }
+
+    // 2. назначаем dataset через API
     const res = await fetch(API + "/select_dataset", {
         method: "POST",
         headers: {
@@ -150,11 +173,11 @@ async function start() {
         return;
     }
 
-    // 2. сохраняем
+    // 3. сохраняем
     localStorage.setItem("student_id", studentId);
     localStorage.setItem("dataset_id", datasetId);
 
-    // 3. переход
+    // 4. переход
     window.location.href = "/tasks";
 }
 
